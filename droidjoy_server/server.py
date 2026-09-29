@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 MAX_PLAYERS = 4
 
-def handle_tcp_client(conn, client_ip: str, gamepads: dict, gamepads_lock: threading.Lock):
+def handle_tcp_client(conn, client_ip: str, gamepads: dict, gamepads_lock: threading.Lock, log_buttons: bool = False):
     """
     Handle the TCP connection from a DroidJoy client.
     Reads continuous stream, buffers, and processes 13-byte packets.
@@ -17,7 +17,7 @@ def handle_tcp_client(conn, client_ip: str, gamepads: dict, gamepads_lock: threa
     with gamepads_lock:
         if client_ip in gamepads:
             gamepads[client_ip].close()
-        gamepads[client_ip] = VirtualGamepad()
+        gamepads[client_ip] = VirtualGamepad(log_buttons=log_buttons)
         gamepad = gamepads[client_ip]
         
     logger.info("Player connected from %s (Total players: %d)", client_ip, len(gamepads))
@@ -82,7 +82,7 @@ def run_udp_receiver(gamepads: dict, stop_event: threading.Event, port: int):
     sock.close()
 
 
-def serve(connection_port=4268, discovery_port=4269):
+def serve(connection_port=4268, discovery_port=4269, log_buttons=False):
     """
     Main entrypoint for the server. Starts discovery, UDP, and TCP loops.
     """
@@ -135,7 +135,7 @@ def serve(connection_port=4268, discovery_port=4269):
             # Spawn a new thread for this client
             client_thread = threading.Thread(
                 target=handle_tcp_client,
-                args=(conn, client_ip, gamepads, gamepads_lock),
+                args=(conn, client_ip, gamepads, gamepads_lock, log_buttons),
                 daemon=True
             )
             client_thread.start()

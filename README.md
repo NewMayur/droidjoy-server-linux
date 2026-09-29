@@ -39,10 +39,16 @@ pip install -r requirements.txt
 python3 -m droidjoy_server
 ```
 
-Run with `--debug` for verbose button and axis event logs:
+### Command-line Options
 
+- `--debug`: Enable verbose debug logging for discovery and network traffic.
+- `--log-buttons`: Log button press events and their received internal DroidJoy IDs to the console (useful when verifying or customizing button mappings).
+- `--tcp-port PORT`: TCP connection and UDP data port (default: `4268`).
+- `--discovery-port PORT`: UDP discovery broadcast port (default: `4269`).
+
+Example with button logging enabled:
 ```bash
-python3 -m droidjoy_server --debug
+python3 -m droidjoy_server --log-buttons
 ```
 
 You can now open the DroidJoy app on your Android device and tap "Search Server". The Linux PC should appear in the list!

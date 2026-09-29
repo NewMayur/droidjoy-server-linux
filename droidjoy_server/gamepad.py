@@ -32,7 +32,8 @@ POV_MAP = {
 }
 
 class VirtualGamepad:
-    def __init__(self):
+    def __init__(self, log_buttons: bool = False):
+        self.log_buttons = log_buttons
         # Define the capabilities of our virtual Xbox 360 controller
         cap = {
             e.EV_KEY: [
@@ -70,7 +71,8 @@ class VirtualGamepad:
             logger.info("Virtual Gamepad destroyed")
 
     def press_button(self, button_id: int):
-        logger.info("Button pressed on phone: ID %d", button_id)
+        if self.log_buttons:
+            logger.info("Button pressed on phone: ID %d", button_id)
         # Triggers are analog
         if button_id == 11:
             self.ui.write(e.EV_ABS, e.ABS_Z, 255)

@@ -8,6 +8,7 @@ def main():
     parser.add_argument("--tcp-port", type=int, default=4268, help="TCP connection and UDP data port (default: 4268)")
     parser.add_argument("--discovery-port", type=int, default=4269, help="UDP discovery broadcast port (default: 4269)")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser.add_argument("--log-buttons", action="store_true", help="Log button press events and IDs to the console")
     
     args = parser.parse_args()
     
@@ -19,7 +20,11 @@ def main():
     )
     
     try:
-        serve(connection_port=args.tcp_port, discovery_port=args.discovery_port)
+        serve(
+            connection_port=args.tcp_port,
+            discovery_port=args.discovery_port,
+            log_buttons=args.log_buttons
+        )
     except KeyboardInterrupt:
         pass
 
