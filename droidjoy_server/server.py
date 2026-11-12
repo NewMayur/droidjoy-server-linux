@@ -1,3 +1,4 @@
+import os
 import socket
 import logging
 import threading
@@ -22,6 +23,14 @@ def handle_tcp_client(conn, client_ip: str, gamepads: dict, gamepads_lock: threa
         
     logger.info("Player connected from %s (Total players: %d)", client_ip, len(gamepads))
     
+    # Optimization: Disable Nagle (TCP_NODELAY) and enable TCP_QUICKACK for instant ACKs
+    try:
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        if hasattr(socket, 'TCP_QUICKACK'):
+            conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+    except Exception:
+        pass
+        
     buffer = b''
     try:
         while True:
@@ -29,6 +38,13 @@ def handle_tcp_client(conn, client_ip: str, gamepads: dict, gamepads_lock: threa
             if not data:
                 break  # Connection closed by client
             
+            # On Linux, TCP_QUICKACK is reset by subsequent reads; re-arm it for immediate ACKs
+            if hasattr(socket, 'TCP_QUICKACK'):
+                try:
+                    conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+                except Exception:
+                    pass
+                    
             buffer += data
             # Process as many 13-byte packets as we have
             while len(buffer) >= 13:
@@ -57,6 +73,11 @@ def run_udp_receiver(gamepads: dict, stop_event: threading.Event, port: int):
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # Increase UDP buffer size to prevent dropping packets on jittery 2.4GHz WiFi
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
+    except Exception:
+        pass
     sock.bind(('0.0.0.0', port))
     sock.settimeout(1.0)
     
@@ -86,6 +107,12 @@ def serve(connection_port=4268, discovery_port=4269, log_buttons=False):
     """
     Main entrypoint for the server. Starts discovery, UDP, and TCP loops.
     """
+    # Boost process priority to minimize kernel scheduling latency
+    try:
+        os.nice(-10)  # Lower nice value = higher priority (if permitted)
+    except Exception:
+        pass
+        
     stop_event = threading.Event()
     gamepads = {}
     gamepads_lock = threading.Lock()
