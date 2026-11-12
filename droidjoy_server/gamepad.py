@@ -31,18 +31,9 @@ POV_MAP = {
     7: (-1, -1),  # UP_LEFT
 }
 
-import time
-import threading
-
-MIN_BUTTON_HOLD_SEC = 0.025  # 25ms floor so 60Hz games never drop subtle taps
-
 class VirtualGamepad:
     def __init__(self, log_buttons: bool = False):
         self.log_buttons = log_buttons
-        self._press_times = {}
-        self._active_timers = {}
-        self._lock = threading.Lock()
-        
         # Define the capabilities of our virtual Xbox 360 controller
         cap = {
             e.EV_KEY: [
@@ -74,70 +65,33 @@ class VirtualGamepad:
         logger.info("Virtual Gamepad created: %s", self.ui.device)
 
     def close(self):
-        with self._lock:
-            for timer in self._active_timers.values():
-                timer.cancel()
-            self._active_timers.clear()
-            if self.ui:
-                self.ui.close()
-                self.ui = None
-                logger.info("Virtual Gamepad destroyed")
+        if self.ui:
+            self.ui.close()
+            self.ui = None
+            logger.info("Virtual Gamepad destroyed")
 
     def press_button(self, button_id: int):
-        with self._lock:
-            if not self.ui:
-                return
-            # Cancel pending release timer if button re-pressed quickly
-            if button_id in self._active_timers:
-                self._active_timers[button_id].cancel()
-                del self._active_timers[button_id]
-                
-            self._press_times[button_id] = time.monotonic()
-            
-            if self.log_buttons:
-                logger.info("Button pressed on phone: ID %d", button_id)
-                
-            # Triggers are analog
-            if button_id == 11:
-                self.ui.write(e.EV_ABS, e.ABS_Z, 255)
-            elif button_id == 12:
-                self.ui.write(e.EV_ABS, e.ABS_RZ, 255)
-            else:
-                evdev_code = BUTTON_MAP.get(button_id)
-                if evdev_code is not None:
-                    self.ui.write(e.EV_KEY, evdev_code, 1)
-
-    def _execute_release(self, button_id: int):
-        with self._lock:
-            if not self.ui:
-                return
-            if button_id == 11:
-                self.ui.write(e.EV_ABS, e.ABS_Z, 0)
-            elif button_id == 12:
-                self.ui.write(e.EV_ABS, e.ABS_RZ, 0)
-            else:
-                evdev_code = BUTTON_MAP.get(button_id)
-                if evdev_code is not None:
-                    self.ui.write(e.EV_KEY, evdev_code, 0)
-            self.ui.syn()
-            if button_id in self._active_timers:
-                del self._active_timers[button_id]
+        if self.log_buttons:
+            logger.info("Button pressed on phone: ID %d", button_id)
+        # Triggers are analog
+        if button_id == 11:
+            self.ui.write(e.EV_ABS, e.ABS_Z, 255)
+        elif button_id == 12:
+            self.ui.write(e.EV_ABS, e.ABS_RZ, 255)
+        else:
+            evdev_code = BUTTON_MAP.get(button_id)
+            if evdev_code is not None:
+                self.ui.write(e.EV_KEY, evdev_code, 1)
 
     def release_button(self, button_id: int):
-        with self._lock:
-            if not self.ui:
-                return
-            press_time = self._press_times.get(button_id, 0.0)
-            elapsed = time.monotonic() - press_time
-            
-            if elapsed < MIN_BUTTON_HOLD_SEC:
-                delay = MIN_BUTTON_HOLD_SEC - elapsed
-                timer = threading.Timer(delay, self._execute_release, args=(button_id,))
-                timer.daemon = True
-                self._active_timers[button_id] = timer
-                timer.start()
-            else:
-                self._execute_release(button_id)
+        if button_id == 11:
+            self.ui.write(e.EV_ABS, e.ABS_Z, 0)
+        elif button_id == 12:
+            self.ui.write(e.EV_ABS, e.ABS_RZ, 0)
+        else:
+            evdev_code = BUTTON_MAP.get(button_id)
+            if evdev_code is not None:
+                self.ui.write(e.EV_KEY, evdev_code, 0)
 
     def set_pov(self, direction_ordinal: int):
         vec = POV_MAP.get(direction_ordinal)
